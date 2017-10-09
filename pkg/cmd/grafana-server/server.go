@@ -22,7 +22,9 @@ import (
 	"github.com/grafana/grafana/pkg/services/eventpublisher"
 	"github.com/grafana/grafana/pkg/services/notifications"
 	"github.com/grafana/grafana/pkg/services/search"
+	"github.com/grafana/grafana/pkg/services/sqlstore"
 	"github.com/grafana/grafana/pkg/setting"
+	dsSettings "github.com/grafana/grafana/pkg/setting/datasources"
 	"github.com/grafana/grafana/pkg/social"
 	"github.com/grafana/grafana/pkg/tracing"
 )
@@ -55,6 +57,12 @@ func (g *GrafanaServerImpl) Start() {
 	g.writePIDFile()
 
 	initSql()
+	err, _ := dsSettings.Init(filepath.Join(setting.HomePath, "conf/datasources.yaml"))
+	if err != nil {
+		g.log.Error("Failed to load datasources from config", "error", err)
+		g.Shutdown(1, "Startup failed")
+		return
+	}
 	metrics.Init(setting.Cfg)
 	search.Init()
 	login.Init()
@@ -87,6 +95,11 @@ func (g *GrafanaServerImpl) Start() {
 	}
 
 	g.startHttpServer()
+}
+
+func initSql() {
+	sqlstore.NewEngine()
+	sqlstore.EnsureAdminUser()
 }
 
 func (g *GrafanaServerImpl) initLogging() {
