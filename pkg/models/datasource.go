@@ -153,6 +153,10 @@ type GetDataSourcesQuery struct {
 	Result []*DataSource
 }
 
+type GetAllDataSourcesQuery struct {
+	Result []*DataSource
+}
+
 type GetDataSourceByIdQuery struct {
 	Id     int64
 	OrgId  int64
