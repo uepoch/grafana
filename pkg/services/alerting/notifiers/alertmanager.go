@@ -1,6 +1,8 @@
 package notifiers
 
 import (
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/grafana/grafana/pkg/bus"
@@ -60,20 +62,8 @@ func (this *AlertmanagerNotifier) Notify(evalContext *alerting.EvalContext) erro
 			alertJSON.Set("generatorURL", ruleUrl)
 		}
 
-		if evalContext.Rule.Message != "" {
-			alertJSON.SetPath([]string{"annotations", "description"}, evalContext.Rule.Message)
-		}
-
-		tags := make(map[string]string)
-		if len(match.Tags) == 0 {
-			tags["metric"] = match.Metric
-		} else {
-			for k, v := range match.Tags {
-				tags[k] = v
-			}
-		}
-		tags["alertname"] = evalContext.Rule.Name
-		alertJSON.Set("labels", tags)
+		alertJSON.Set("annotations", parseAnnotations(evalContext))
+		alertJSON.Set("labels", parseLabels(evalContext, match))
 
 		alerts = append(alerts, alertJSON)
 	}
@@ -93,4 +83,42 @@ func (this *AlertmanagerNotifier) Notify(evalContext *alerting.EvalContext) erro
 	}
 
 	return nil
+}
+
+func parseAnnotations(evalContext *alerting.EvalContext) map[string]string {
+	annotations := make(map[string]string)
+
+	if evalContext.Rule.Message != "" {
+		annotations["description"] = evalContext.Rule.Message
+	}
+
+	return annotations
+}
+
+func parseLabels(evalContext *alerting.EvalContext, match *alerting.EvalMatch) map[string]string {
+	labels := make(map[string]string)
+	labels["alertname"] = evalContext.Rule.Name
+
+	if len(match.Tags) == 0 {
+		labels["metric"] = match.Metric
+	} else {
+		for k, v := range match.Tags {
+			labels[k] = v
+		}
+	}
+
+	// FIXME: add params in ui for external labels
+	// Parse external labels from message
+	if evalContext.Rule.Message != "" {
+		re := regexp.MustCompile("\"(.+)\":\"(.+)\"")
+		for _, line := range strings.Split(evalContext.Rule.Message, "\n") {
+			match := re.FindAllStringSubmatch(line, 1)
+			if match != nil {
+				labelName := match[0][1]
+				labelValue := match[0][2]
+				labels[labelName] = labelValue
+			}
+		}
+	}
+	return labels
 }
