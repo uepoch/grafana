@@ -62,8 +62,9 @@ func (this *AlertmanagerNotifier) Notify(evalContext *alerting.EvalContext) erro
 			alertJSON.Set("generatorURL", ruleUrl)
 		}
 
-		alertJSON.Set("annotations", parseAnnotations(evalContext))
-		alertJSON.Set("labels", parseLabels(evalContext, match))
+		labels, cleanMsg := parseLabels(evalContext, match)
+		alertJSON.Set("annotations", parseAnnotations(evalContext, cleanMsg))
+		alertJSON.Set("labels", labels)
 
 		alerts = append(alerts, alertJSON)
 	}
@@ -85,17 +86,17 @@ func (this *AlertmanagerNotifier) Notify(evalContext *alerting.EvalContext) erro
 	return nil
 }
 
-func parseAnnotations(evalContext *alerting.EvalContext) map[string]string {
+func parseAnnotations(evalContext *alerting.EvalContext, cleanMsg string) map[string]string {
 	annotations := make(map[string]string)
 
-	if evalContext.Rule.Message != "" {
-		annotations["description"] = evalContext.Rule.Message
+	if cleanMsg != "" {
+		annotations["description"] = cleanMsg
 	}
 
 	return annotations
 }
 
-func parseLabels(evalContext *alerting.EvalContext, match *alerting.EvalMatch) map[string]string {
+func parseLabels(evalContext *alerting.EvalContext, match *alerting.EvalMatch) (map[string]string, string) {
 	labels := make(map[string]string)
 	labels["alertname"] = evalContext.Rule.Name
 
@@ -109,6 +110,7 @@ func parseLabels(evalContext *alerting.EvalContext, match *alerting.EvalMatch) m
 
 	// FIXME: add params in ui for external labels
 	// Parse external labels from message
+	messageLines := []string{}
 	if evalContext.Rule.Message != "" {
 		re := regexp.MustCompile("\"(.+)\":\"(.+)\"")
 		for _, line := range strings.Split(evalContext.Rule.Message, "\n") {
@@ -117,8 +119,11 @@ func parseLabels(evalContext *alerting.EvalContext, match *alerting.EvalMatch) m
 				labelName := match[0][1]
 				labelValue := match[0][2]
 				labels[labelName] = labelValue
+			} else {
+				// Only keep lines without labels
+				messageLines = append(messageLines, line)
 			}
 		}
 	}
-	return labels
+	return labels, strings.Join(messageLines, "\n")
 }

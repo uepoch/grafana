@@ -68,11 +68,14 @@ func TestAlertmanagerNotifier(t *testing.T) {
 					"label3":    "value3",
 					"tag1":      "tagvalue1",
 				}
-				actualLabels := parseLabels(context, &match)
+				expectedCleanMsg := "A great description\nWith some details\n"
+
+				actualLabels, actualCleanMsg := parseLabels(context, &match)
 				So(len(actualLabels), ShouldEqual, len(expectedLabels))
 				for k, v := range expectedLabels {
 					So(actualLabels[k], ShouldEqual, v)
 				}
+				So(actualCleanMsg, ShouldEqual, expectedCleanMsg)
 			})
 
 			Convey("Should correctly add a 'metric' label if there is no tags", func() {
@@ -88,23 +91,28 @@ func TestAlertmanagerNotifier(t *testing.T) {
 					"alertname": "test_alert",
 					"metric":    "fake.metric",
 				}
-				actualLabels := parseLabels(context, &match)
+				expectedCleanMsg := "A great description\n"
+
+				actualLabels, actualCleanMsg := parseLabels(context, &match)
 				So(len(actualLabels), ShouldEqual, len(expectedLabels))
 				for k, v := range expectedLabels {
 					So(actualLabels[k], ShouldEqual, v)
 				}
+				So(actualCleanMsg, ShouldEqual, expectedCleanMsg)
 			})
 
 			Convey("Should correctly annotations", func() {
 				context := alerting.NewEvalContext(context.TODO(), &alerting.Rule{
-					Message: "A great description",
+					Message: "A great description\n\"label1\":\"value1\"",
 				})
 				context.EvalMatches = append(context.EvalMatches,
 					&alerting.EvalMatch{Value: null.FloatFrom(18.2), Metric: "foobar"})
+				cleanMsg := "A great description"
 				expectedAnnotations := map[string]string{
 					"description": "A great description",
 				}
-				actualAnnotations := parseAnnotations(context)
+
+				actualAnnotations := parseAnnotations(context, cleanMsg)
 				So(len(actualAnnotations), ShouldEqual, len(expectedAnnotations))
 				for k, v := range expectedAnnotations {
 					So(actualAnnotations[k], ShouldEqual, v)
