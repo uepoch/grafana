@@ -1,6 +1,8 @@
 package notifiers
 
 import (
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/grafana/grafana/pkg/bus"
@@ -69,9 +71,25 @@ func (this *AlertmanagerNotifier) createAlert(evalContext *alerting.EvalContext,
 
 	// Annotations (summary and description are very commonly used).
 	alertJSON.SetPath([]string{"annotations", "summary"}, evalContext.Rule.Name)
+	tags := make(map[string]string)
 	description := ""
 	if evalContext.Rule.Message != "" {
-		description += evalContext.Rule.Message
+		// FIXME: add params in ui for external labels
+		// Parse external labels from message
+		messageLines := []string{}
+		re := regexp.MustCompile("\"(.+)\":\"(.+)\"")
+		for _, line := range strings.Split(evalContext.Rule.Message, "\n") {
+			reMatch := re.FindAllStringSubmatch(line, 1)
+			if reMatch != nil {
+				labelName := reMatch[0][1]
+				labelValue := reMatch[0][2]
+				tags[labelName] = labelValue
+			} else {
+				// Only keep lines without labels
+				messageLines = append(messageLines, line)
+			}
+		}
+		description += strings.Join(messageLines, "\n")
 	}
 	if evalContext.Error != nil {
 		if description != "" {
@@ -87,7 +105,6 @@ func (this *AlertmanagerNotifier) createAlert(evalContext *alerting.EvalContext,
 	}
 
 	// Labels (from metrics tags + mandatory alertname).
-	tags := make(map[string]string)
 	if match != nil {
 		if len(match.Tags) == 0 {
 			tags["metric"] = match.Metric
