@@ -167,10 +167,21 @@ export class BackendSrv {
     const requestIsLocal = !options.url.match(/^http/);
     const firstAttempt = options.retry === 0;
 
+    options.headers = options.headers || {};
+    // TODO: Add more information
+    if (this.contextSrv.user) {
+      if (this.contextSrv.user.id) {
+        options.headers['X-Grafana-User'] = this.contextSrv.user.id
+      }
+      if (this.contextSrv.user.orgId) {
+        options.headers['X-Grafana-Org-Id'] = this.contextSrv.user.orgId;
+      }
+    }
+
+    this.contextSrv.user.id
+
     if (requestIsLocal) {
       if (this.contextSrv.user && this.contextSrv.user.orgId) {
-        options.headers = options.headers || {};
-        options.headers['X-Grafana-Org-Id'] = this.contextSrv.user.orgId;
       }
 
       if (options.url.indexOf('/') === 0) {

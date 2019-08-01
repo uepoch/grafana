@@ -241,7 +241,6 @@ func (hs *HTTPServer) registerRoutes() {
 
 		// Data sources
 		apiRoute.Group("/datasources", func(datasourceRoute routing.RouteRegister) {
-			datasourceRoute.Get("/", Wrap(GetDataSources))
 			datasourceRoute.Post("/", quota("data_source"), bind(m.AddDataSourceCommand{}), Wrap(AddDataSource))
 			datasourceRoute.Put("/:id", bind(m.UpdateDataSourceCommand{}), Wrap(UpdateDataSource))
 			datasourceRoute.Delete("/:id", Wrap(DeleteDataSourceById))
@@ -250,6 +249,7 @@ func (hs *HTTPServer) registerRoutes() {
 			datasourceRoute.Get("/name/:name", Wrap(GetDataSourceByName))
 		}, reqOrgAdmin)
 
+		apiRoute.Get("/datasources", Wrap(GetDataSources), reqSignedIn)
 		apiRoute.Get("/datasources/id/:name", Wrap(GetDataSourceIdByName), reqSignedIn)
 
 		apiRoute.Get("/plugins", Wrap(hs.GetPluginList))
